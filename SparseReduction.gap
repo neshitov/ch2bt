@@ -87,23 +87,6 @@ ReduceColumnGcd:= function(A, column_num, pivot_num, tr)
   return rec(finished:=false, pivot_num:=pivot_num);
 end;
 
-
-
-#BinaryGcd := function(A)
-#  #~5 times faster than general gcd
-#  local n;
-#  n:=Length(A);
-#  if n=0 then
-#    return 0;
-#  elif n=1 then
-#    return A[1];
-#  elif n=2 then
-#    return GcdInt(A[1], A[2]);
-#  fi;
-#  return GcdInt(BinaryGcd(A{[1..QuoInt(n,2)]}),
-#                BinaryGcd(A{[QuoInt(n,2)+1, n]}));
-#end;
-
 RandomPair := function(N)
   local a, b;
   a := Random([1..N-1]);
@@ -114,6 +97,7 @@ end;
 
 FixTwoRows := function(A, column_num, i, j, tr)
   # Reduce rows i and j to its gcd in column col_num
+  local r1, r2, gcd_, g, a, b, c, d;
 
   r1 := GetEntry(A, i, column_num);
   r2 := GetEntry(A, j, column_num);
@@ -165,6 +149,13 @@ ReduceColumn := function(A, column_num, pivot_num, tr)
   return result.pivot_num;
 end;
 
+NonzeroInColumns :=function(m)
+  local mt;
+  mt := TransposedSparseMat(m);
+  return List([1..Ncols(m)], i-> Length(mt!.indices[i]));
+end;
+
+
 ReduceMatrix := function(A)
   # Reduces SparseMatrix A to upper triangular in-place.
   # Returns the sparse row transform matrix
@@ -172,12 +163,9 @@ ReduceMatrix := function(A)
   pivot_num := 1;
   tr := SparseIdentityMatrix(Nrows(A), Integers);
   for col_num in [1..Ncols(A)] do
-    #Print("\ncol_num \n");
-    #Print(col_num);
-    #Print("\n");
-    #Display(A);
 
     pivot_num := ReduceColumn(A, col_num, pivot_num, tr);
   od;
-  return tr;
+  return rec(transform:= tr,
+             rank:=pivot_num - 1);
 end;
