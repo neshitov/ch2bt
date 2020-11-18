@@ -2,6 +2,9 @@ LoadPackage("Gauss");
 
 GetColumn:= function(A, i)
   local sm;
+  #if i > Ncols(A) then
+  #  Error(i);
+  #fi;
   sm:= TransposedSparseMat(CertainColumns(A, [i]));
   return rec(indices:=sm!.indices[1],
              entries:=sm!.entries[1]);
@@ -18,12 +21,17 @@ GeneralTwoByTwoTransform:= function(A, i, j, a, b, c, d)
   # R[i] <- aR[i] + bR[j]
   # R[j] <- cR[i] + dR[j]
   # where [[a,b],[c,d]] is unimodular
-  local temp_i;
-  temp_i := ShallowCopy(A!.entries[i]);
-  AddRow(A!.indices[i], (a - 1) * A!.entries[i], A!.indices[i], A!.entries[i]);
-  AddRow(A!.indices[j], b * A!.entries[j], A!.indices[i], A!.entries[i]);
-  AddRow(A!.indices[j], (d - 1) * A!.entries[j], A!.indices[j], A!.entries[j]);
-  AddRow(A!.indices[i], c * temp_i, A!.indices[j], A!.entries[j]);
+  local indices_i, entries_i, indices_j, entries_j;
+  indices_i := ShallowCopy(A!.indices[i]);
+  entries_i := ShallowCopy(A!.entries[i]);
+  indices_j := ShallowCopy(A!.indices[j]);
+  entries_j := ShallowCopy(A!.entries[j]);
+
+  AddRow(indices_i, (a - 1) * entries_i, A!.indices[i], A!.entries[i]);
+  AddRow(indices_j, b * entries_j, A!.indices[i], A!.entries[i]);
+  AddRow(indices_i, c * entries_i, A!.indices[j], A!.entries[j]);
+  AddRow(indices_j, (d - 1) * entries_j, A!.indices[j], A!.entries[j]);
+
 end;
 
 #SwitchElements:= function(A, i, j)
@@ -49,7 +57,7 @@ end;
 
 #ReduceColumnGcd:= function(A, col, pivot_num, tr)
 ReduceColumnGcd:= function(A, column_num, pivot_num, tr)
-  #local counter1, counter2, entries_num, gcd, d;
+  #Reduces column if it has gcd entry.
   local counter1, counter2, entries_num, gcd, d, col, filter;
 
   col := GetColumn(A, column_num);
@@ -79,6 +87,8 @@ ReduceColumnGcd:= function(A, column_num, pivot_num, tr)
   return rec(finished:=false, pivot_num:=pivot_num);
 end;
 
+
+
 #BinaryGcd := function(A)
 #  #~5 times faster than general gcd
 #  local n;
@@ -102,19 +112,36 @@ RandomPair := function(N)
 end;
 
 
+FixTwoRows := function(A, column_num, i, j, tr)
+  # Reduce rows i and j to its gcd in column col_num
+
+  r1 := GetEntry(A, i, column_num);
+  r2 := GetEntry(A, j, column_num);
+  gcd_ := Gcdex(r1, r2);
+  g := gcd_.gcd;
+  a := gcd_.coeff1;
+  b := gcd_.coeff2;  # ar1+br2=g
+  c := QuoInt(-r2, g);
+  d := QuoInt(r1, g); # ad-bc=1
+  GeneralTwoByTwoTransform(A, i, j, a, b, c, d);
+  GeneralTwoByTwoTransform(tr, i, j, a, b, c, d);
+end;
+
+
 ReduceColumn := function(A, column_num, pivot_num, tr)
-  local col, result, i, j, k, pair, gcd, best_gcd, col_filter,
+  local col, result, i, j, i_num, j_num, k, pair, gcd, gcd_, best_gcd, col_filter,
         filter, r1, r2, a, b, c, d, best_pair, entries_num, g;
-  col := GetColumn(A, column_num);
-  filter := PositionsProperty(col.indices, x-> x>=pivot_num);
-  col.indices := col.indices{filter};
-  col.entries := col.entries{filter};
-  entries_num := Length(col.indices);
 
   #result := ReduceColumnGcd(A, col, pivot_num, tr);
   result := ReduceColumnGcd(A, column_num, pivot_num, tr);
   while not result.finished do
     # Randomly choose pair of entries with small gcd
+    col := GetColumn(A, column_num);
+    filter := PositionsProperty(col.indices, x-> x>=pivot_num);
+    col.indices := col.indices{filter};
+    col.entries := col.entries{filter};
+    entries_num := Length(col.indices);
+
     if Length(col.indices) > 1 then
       best_pair := RandomPair(Length(col.indices));
       best_gcd := GcdInt(col.entries[best_pair[1]], col.entries[best_pair[2]]);
@@ -127,38 +154,28 @@ ReduceColumn := function(A, column_num, pivot_num, tr)
         fi;
       od;
 
-      i := best_pair[1];
-      j := best_pair[2];
-      r1 := col.entries[i];
-      r2 := col.entries[j];
-      gcd := Gcdex(r1, r2);
-      g := gcd.gcd;
-      a := gcd.coef1;
-      b := gcd.coef2;  # ar1+br2=g
-      c := QuoInt(-r2, g);
-      d := QuoInt(r1, g); # ad-bc=1
-      GeneralTwoByTwoTransform(A, i, j, a, b, c, d);
-      GeneralTwoByTwoTransform(tr, i, j, a, b, c, d);
-      col_filter := PositionsProperty(col.entries, x-> x<>0);
-      col.entries := col.entries{col_filter};
-      col.indices := col.indices{col_filter};
+      i_num := best_pair[1];
+      j_num := best_pair[2];
+      i := col.indices[i_num];
+      j := col.indices[j_num];
+      FixTwoRows(A, column_num, i, j, tr);
     fi;
-    result := ReduceColumnGcd(A, col, pivot_num, tr);
-    Print("\nresult finished\n");
-    Print(result.finished);
+    result := ReduceColumnGcd(A, column_num, pivot_num, tr);
   od;
   return result.pivot_num;
 end;
 
 ReduceMatrix := function(A)
+  # Reduces SparseMatrix A to upper triangular in-place.
+  # Returns the sparse row transform matrix
   local col_num, pivot_num, tr;
   pivot_num := 1;
   tr := SparseIdentityMatrix(Nrows(A), Integers);
   for col_num in [1..Ncols(A)] do
-    Print("\ncol_num \n");
-    Print(col_num);
-    Print("\n");
-    Display(A);
+    #Print("\ncol_num \n");
+    #Print(col_num);
+    #Print("\n");
+    #Display(A);
 
     pivot_num := ReduceColumn(A, col_num, pivot_num, tr);
   od;
