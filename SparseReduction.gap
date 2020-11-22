@@ -34,6 +34,12 @@ GeneralTwoByTwoTransform:= function(A, i, j, a, b, c, d)
 
 end;
 
+ClearRowTail:= function(A, i)
+  # Clear all entries in the row except the last first one.
+  A!.indices[i] := [A!.indices[i][1]];
+  A!.entries[i] := [A!.entries[i][1]];
+end;
+
 #SwitchElements:= function(A, i, j)
 #  local temp;
 #  if i<>j then
@@ -81,6 +87,9 @@ ReduceColumnGcd:= function(A, column_num, pivot_num, tr)
       od;
       SwitchRows(A, pivot_num, col.indices[counter1]);
       SwitchRows(tr, pivot_num, col.indices[counter1]);
+      Print("pivot num ");
+      Print(pivot_num);
+      ClearRowTail(A, pivot_num);  # To save space;
       return rec(finished:=true, pivot_num:=pivot_num+1);
     fi;
   od;
@@ -124,6 +133,9 @@ ReduceColumn := function(A, column_num, pivot_num, tr)
     filter := PositionsProperty(col.indices, x-> x>=pivot_num);
     col.indices := col.indices{filter};
     col.entries := col.entries{filter};
+    filter := PositionsProperty(col.entries, x-> x<>0);
+    col.indices := col.indices{filter};
+    col.entries := col.entries{filter};
     entries_num := Length(col.indices);
 
     if Length(col.indices) > 1 then
@@ -163,9 +175,147 @@ ReduceMatrix := function(A)
   pivot_num := 1;
   tr := SparseIdentityMatrix(Nrows(A), Integers);
   for col_num in [1..Ncols(A)] do
+    #Print("\ncol_num \n");
+    #Print(col_num);
+    #Print("\n");
+    #Display(A);
 
     pivot_num := ReduceColumn(A, col_num, pivot_num, tr);
+    Print(col_num);
+    Print(" ");
+    Print(pivot_num);
+    Print("\n");
   od;
   return rec(transform:= tr,
              rank:=pivot_num - 1);
+end;
+
+HNFTransform := function(A)
+  # Returns a matrix M such that M*A=H in Hermite normal form
+  local tr, rank, transform, inv_transform, sm, ring;
+  ring := RingOfDefinition(A);
+  # Hermite form of sparse matrix sm
+  tr := EchelonMatTransformation(A);
+  rank := Nrows(tr.vectors);
+  transform := UnionOfRows(tr.coeffs, tr.relations);
+  return rec(transform:=transform,
+             H:=transform * A,
+             pivots:=tr.heads);
+end;
+
+ColPermutation := function(_li)
+  local current_col, perm;
+  current_col := 1;
+  perm := ();
+  for x in _li do
+    if x <> current_col then
+      perm := perm * (current_col, x);
+    fi;
+    current_col := current_col + 1;
+  od;
+  return perm;
+end;
+
+ElementaryMatrix := function(n, i, j, r, ring)
+  # Elementary matrix M:
+  # _*M performs column operation C[j] <- r*C[i] + C[j]
+  # M*_ performs row operation R[i] <- R[i] + r*R[j]
+  local res;
+  res := SparseIdentityMatrix(n, ring);
+  SetEntry(res, i, j, r);
+  return res;
+end;
+
+ClearRow := function(H, col_t, i, p)
+  # Records column operations to clear row i with pivot at position (i,i)
+  local pivot, gcd_pval, j, c, tmp_indices, tmp_entries;
+
+  pivot := GetEntry(H, i, i);
+  gcd_pval := Minimum(List(H!.entries[i], x -> PValuation(Int(x), p)));
+
+  if PValuation(Int(pivot), p) <> gcd_pval then
+    j := PositionProperty(H!.entries[i], x -> PValuation(Int(x), p) = gcd_pval);
+    c := ElementaryMatrix(Ncols(H), H!.indices[i][j], i,
+                               One(RingOfDefinition(H)), RingOfDefinition(H));
+    H := H * c;
+    col_t := col_t * c;
+  fi;
+
+  tmp_indices := ShallowCopy(H!.indices[i]);
+  tmp_entries := ShallowCopy(H!.entries[i]);
+  pivot := GetEntry(H, i, i);
+  for j in [2..Length(H!.entries[i])] do
+    c := ElementaryMatrix(Ncols(H), i, tmp_indices[j],
+                               - tmp_entries[j] / pivot, RingOfDefinition(H));
+    H := H * c;
+    col_t := col_t * c;
+  od;
+  return rec(H:=H,
+             col_t:=col_t);
+end;
+
+ClearColumn := function(H, row_t, i, p)
+  # Records column operations to clear row i with pivot at position (i,i)
+  local pivot, gcd_pval, j, c, tmp_indices, tmp_entries, column;
+
+  pivot := GetEntry(H, i, i);
+  column := GetColumn(H, i);
+  gcd_pval := Minimum(List(column.entries, x -> PValuation(Int(x), p)));
+  #Print("gcd pval");
+  #Print(gcd_pval);
+  if PValuation(Int(pivot), p) <> gcd_pval then
+    j := PositionProperty(column.entries, x -> PValuation(Int(x), p) = gcd_pval);
+    c := ElementaryMatrix(Nrows(H), i, column.indices[j],
+                          One(RingOfDefinition(A)), RingOfDefinition(H));
+    H := c * H;
+    row_t := c * row_t;
+  fi;
+
+  column := GetColumn(H, i);
+
+  pivot := GetEntry(H, i, i);
+  for j in [2..Length(column.entries)] do
+    c := ElementaryMatrix(Nrows(H), column.indices[j], i,
+                          - column.entries[j] / pivot, RingOfDefinition(H));
+    H := c * H;
+    row_t := c * row_t;
+  od;
+  return rec(H:=H,
+             row_t:=row_t);
+end;
+
+SNFTransform := function(A, p)
+  # Returns Smith Normal form and transformation matrices over Z/p^N
+  local hnf, pivot_columns, col_t, row_t, pm, H, rank,
+        col, pvals, i, j, gcd_pval, c, pivot, coef, tmp_indices, tmp_entries, cr;
+  hnf := HNFTransform(A);
+  H := hnf.H;
+  row_t := hnf.transform;
+  Print("HNF done\n");
+  pivot_columns := PositionsProperty([1..Ncols(A)], i -> hnf.pivots[i] > 0);
+  rank := Length(pivot_columns);
+  pm := PermutationMat(ColPermutation(pivot_columns), Ncols(A));
+  pm := SparseMatrix(pm * One(RingOfDefinition(A)));
+  col_t := pm;
+  # Move all pivots to the left
+  H := H * pm;
+
+  i := 1;
+  while i < rank + 1 do
+    if Length(H!.indices[i]) = 1 and Length(GetColumn(H, i).indices) = 1 then
+      i := i + 1;
+    else
+      Print("Clear Row and Col on pivot ");
+      Print(i);
+      Print("\n");
+      cr := ClearRow(H, col_t, i, p);
+      H := cr.H;
+      col_t := cr.col_t;
+      cr := ClearColumn(H, row_t, i, p);
+    fi;
+  od;
+
+  return rec(SNF:=H,
+             row_transform:=row_t,
+             col_transform:=col_t);
 end;
