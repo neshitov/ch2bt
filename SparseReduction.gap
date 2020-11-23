@@ -38,7 +38,14 @@ AddColumnMultiple:= function(A, i, j, c)
   od;
 end;
 
+
+PermuteRows := function(A, perm)
+  A!.indices := Permuted(A!.indices, perm);
+  A!.entries := Permuted(A!.entries, perm);
+end;
+
 SwitchRows:= function(A, i, j)
+  #PermuteRows(A, (i,j));
   local temp_entries, temp_indices;
   if i<>j then
     temp_entries := EntriesOfSparseMatrix(A)[i];
@@ -80,15 +87,16 @@ end;
 
 ClearRow := function(H, col_t, i, p)
   # Records column operations to clear row i with pivot at position (i,i)
-  local pivot, gcd_pval, j, c, tmp_indices, tmp_entries;
+  local pivot, gcd_pval, j, c, tmp_indices, tmp_entries, tmp_index;
 
   pivot := GetEntry(H, i, i);
   gcd_pval := Minimum(List(EntriesOfSparseMatrix(H)[i], x -> PValuation(Int(x), p)));
 
   if PValuation(Int(pivot), p) <> gcd_pval then
     j := PositionProperty(EntriesOfSparseMatrix(H)[i], x -> PValuation(Int(x), p) = gcd_pval);
-    AddColumnMultiple(H, i, IndicesOfSparseMatrix(H)[i][j], One(RingOfDefinition(H)));
-    AddColumnMultiple(col_t, i, IndicesOfSparseMatrix(H)[i][j], One(RingOfDefinition(H)));
+    tmp_index := IndicesOfSparseMatrix(H)[i][j];
+    AddColumnMultiple(H, i, tmp_index, One(RingOfDefinition(H)));
+    AddColumnMultiple(col_t, i, tmp_index, One(RingOfDefinition(H)));
   fi;
 
   tmp_indices := ShallowCopy(IndicesOfSparseMatrix(H)[i]);
@@ -121,6 +129,11 @@ ClearColumn := function(H, row_t, i, p)
   od;
 end;
 
+MultiplyRowByUnit := function(H, i, c)
+  # Multiples i-th row by c in H and
+  H!.entries[i] := c * H!.entries[i];
+end;
+
 IsPivot := function(H, i)
   if GetEntry(H, i, i) = Zero(RingOfDefinition(H)) then
     return false;
@@ -141,23 +154,35 @@ IsProblem := function(M)
   return false;
 end;
 
-FixPivot := function(H, col_t, row_t, i, p)
-  local next_row;
-  #if IsProblem(H) then
-  #  Error("Sparse fuckup");
+PermuteSparseVector := function(indices, entries, perm, perm_left, perm_right)
+  local i;
+  #if Length(indices) > 0 then
+  #  if not (indices[1] > perm_right or indices[Length(indices)] < perm_left) then
+      for i in [1..Length(indices)] do
+        indices[i] := indices[i] ^ perm;
+      od;
+      SortParallel(indices, entries);
+  #  fi;
   #fi;
-  #while not IsPivot(H, i) do
-  #  Print("pivot valuation ");
-  #  Print(PValuation(Int(GetEntry(H, i, i)), p));
-  #  Print("\n");
-  #  ClearRow(H, col_t, i, p);
-  #  ClearColumn(H, row_t, i, p);
-  #od;
+end;
+
+PermuteColumns := function(A, perm)
+  local i, perm_left, perm_right;
+  perm_left := SmallestMovedPoint(perm);
+  perm_right := LargestMovedPoint(perm);
+  for i in [1..Nrows(A)] do
+    PermuteSparseVector(A!.indices[i], A!.entries[i], perm, perm_left, perm_right);
+  od;
+end;
+
+FixPivot := function(H, col_t, row_t, i, p)
+  local next_row, pivot, unit;
   if GetEntry(H, i, i) = Zero(RingOfDefinition(H)) then
     next_row := PositionProperty([i + 1..Nrows(H)], j -> Length(H!.indices[j]) > 0);
     if next_row = fail then
-      return fail;
+      return false;
     fi;
+    next_row := next_row + i;
     SwitchRows(H, i, next_row);
     SwitchRows(row_t, i, next_row);
   fi;
@@ -166,52 +191,37 @@ FixPivot := function(H, col_t, row_t, i, p)
     ClearRow(H, col_t, i, p);  # Will make pivot entry nonzero if it was zero
     ClearColumn(H, row_t, i, p);
   od;
+  pivot := GetEntry(H, i, i);
+  if pivot = Zero(RingOfDefinition(H)) then
+    Error("Zero pivot");
+  fi;
+  unit := p ^ PValuation(Int(pivot), p) / pivot;
+  MultiplyRowByUnit(H, i, unit);
+  MultiplyRowByUnit(row_t, i, unit);
+  return true;
 end;
 
 SNFTransform := function(A, p)
-  local row_t, col_t, i;
+  local row_t, col_t, i, perm;
   row_t := SparseIdentityMatrix(Nrows(A), RingOfDefinition(A));
   col_t := SparseIdentityMatrix(Ncols(A), RingOfDefinition(A));
 
-  for i in [1 .. Maximum(Nrows(A), Ncols(A))] do
+  i := 1;
+  while FixPivot(A, col_t, row_t, i, p) do
     Print(i);
-    Print("\n");
-    FixPivot(A, col_t, row_t, i, p);
-  od;
-end;
-
-PreSNFTransform := function(A, p)
-  # Returns Smith Normal form and transformation matrices over Z/p^N
-  local hnf, pivot_columns, col_t, row_t, pm, H, rank,
-        col, pvals, i, j, gcd_pval, c, pivot, coef, tmp_indices, tmp_entries, cr;
-  hnf := HNFTransform(A);
-  H := hnf.H;
-  row_t := hnf.transform;
-  Print("HNF done\n");
-  pivot_columns := PositionsProperty([1..Ncols(A)], i -> hnf.pivots[i] > 0);
-  rank := Length(pivot_columns);
-  pm := PermutationMat(ColPermutation(pivot_columns), Ncols(A));
-  pm := SparseMatrix(pm * One(RingOfDefinition(A)));
-  col_t := pm;
-  # Move all pivots to the left
-  H := H * pm;
-#  return H;
-#end;
-#  #i := 1;
-  for i in [1..rank] do
-    Print("do pivot ");
-    Print(i);
-    Print("\n");
-    FixPivot(H, col_t, row_t, i, p);
-    if ((Length(H!.indices[i]) <> 1
-        or Length(GetColumn(H, i).indices) <> 1)
-        or GetEntry(H, i, i) = 0) then
-          Error("FixPivot fail");
-    fi;
+    Print(" done\n");
+    i := i + 1;
   od;
 
-  #return rec(SNF:=H,
-  #           row_transform:=row_t,
-  #           col_transform:=col_t);
-  return H;
+  perm := SortingPerm(List([1..i], x-> PValuation(Int(GetEntry(A, x, x)), p)));
+  #Print(perm);
+  PermuteRows(A, perm);
+  PermuteRows(row_t, perm);
+
+  PermuteColumns(A, perm);
+  PermuteColumns(col_t, perm);
+
+  return rec(rank := i - 1,
+             row_transform := row_t,
+             column_transform := col_t);
 end;
