@@ -180,3 +180,14 @@ ElementaryMatrix := function(n, i, j, c, ring)
   SetEntry(res, i, j, c);
   return res;
 end;
+
+MatProduct := function(a,b)
+  local dim_a, dim_b;
+  dim_a := DimensionsMat(a);
+  dim_b := DimensionsMat(b);
+  if dim_a[2] = dim_b[1] then
+    return a * b;
+  else
+    return Error(Concatenation([dim_a, dim_b]));
+  fi;
+end;
