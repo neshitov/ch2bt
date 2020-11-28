@@ -30,6 +30,7 @@ IsDecomposable:= function(n, matrix_list)
   return true;
 end;
 
+
 IsSignPermutationRow:= function(row)
   local has_one;
   has_one := false;
@@ -45,6 +46,7 @@ IsSignPermutationRow:= function(row)
   return true;
 end;
 
+
 IsSignPermutationMatrix:= function(m)
   # Check if m is a signed permutation under the assumption that m is invertible.
   for row in m do
@@ -54,6 +56,7 @@ IsSignPermutationMatrix:= function(m)
   od;
   return true;
 end;
+
 
 IsSignPermutationList:= function(matrix_list)
   # Check if list of invertible matrices conists of sign permutations.
@@ -65,6 +68,7 @@ IsSignPermutationList:= function(matrix_list)
   return true;
 end;
 
+
 IsTwoPrimary:= function(x)
   # Check if a number is a power of 2
   local n;
@@ -75,12 +79,14 @@ IsTwoPrimary:= function(x)
   return n = 1;
 end;
 
+
 IsTwoGroup_greater_4:= function(matrix_list)
   # Check if list of matrices generates a 2-group of order > 4
   local order;
   order := Order(Group(matrix_list));
   return (IsTwoPrimary(order) and (order > 4));
 end;
+
 
 KeepGroup:= function(n, matrix_list)
   if IsSignPermutationList(matrix_list) then
