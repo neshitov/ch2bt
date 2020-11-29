@@ -237,6 +237,30 @@ SparseInverse := function(A)
 end;
 
 
+FindSmallestColumnEntry := function(A, t, j_t, p)
+  # Finds entries with minimal valuations in row and column containing (t, j_t)
+  local pivot_p_val, entry_p_val,
+        min_p_val_in_column, min_p_val_in_column_index,
+        i, nr;
+
+  pivot_p_val := PValuation( Int( A!.entries[t][1] ), p );
+  min_p_val_in_column := pivot_p_val;
+  min_p_val_in_column_index := t; # row nr with minimal p val in column
+
+  # find smallest p valuation in column
+  for i in [ t + 1 .. Nrows(A)] do
+    entry_p_val := PValuation( Int( GetEntry(A, i, j_t) ), p );
+    if entry_p_val < min_p_val_in_column then
+      min_p_val_in_column := entry_p_val;
+      min_p_val_in_column_index := i;
+    fi;
+  od;
+
+  return rec(min_p_val_in_column := min_p_val_in_column,
+             min_p_val_in_column_index := min_p_val_in_column_index);
+end;
+
+
 FindSmallestRowColumnEntries := function(A, t, j_t, p)
   # Finds entries with minimal valuations in row and column containing (t, j_t)
   local pivot_p_val, entry_p_val,
@@ -314,6 +338,55 @@ SNFTransformDestructive := function(A, row_t, row_t_inverse, col_t)
         Error( "only Z / p^n supported" );
   fi;
   p := PrimePowersInt( char )[1];
+
+  # Do Hermite normal form reduction first
+
+  for t in [ 1 .. Nrows(A) ] do
+
+    # Choose j_t such that A[>=t,j_t] is the leftmost nonzero column in A[>=t,:]
+    # and A[i_t, j_t] has the smallest p-valuation in the column A[:,j_t]
+    j_t := infinity;
+    min_v := infinity;
+    i_t := 0;
+    for i in [ t .. nrows ] do
+      if Length(A!.indices[i]) > 0 then
+        if A!.indices[i][1] < j_t then
+          j_t := A!.indices[i][1];
+          i_t := i;
+          min_v := PValuation( Int( A!.entries[i][1] ), p );
+        elif A!.indices[i][1] = j_t and PValuation( Int( A!.entries[i][1] ), p ) < min_v then
+          i_t := i;
+          min_v := PValuation( Int( A!.entries[i][1] ), p );
+        fi;
+      fi;
+    od;
+
+    if j_t = infinity then
+      break;
+    fi;
+
+    # Move pivot to position to (t, j_t)
+    if i_t <> t then
+      SwitchRows(A, i_t, t);
+      SwitchRows(row_t, i_t, t);
+      SwitchColumns(row_t_inverse, i_t, t);
+    fi;
+
+    # get rid of all entries below the pivot in column j_t
+    for i in [ t + 1 .. nrows] do
+      if Length(A!.indices[i]) > 0 and A!.indices[i][1] = j_t then
+        coef := - A!.entries[i][1] / A!.entries[t][1];
+        AddRowMultiple( A, i, t, coef );
+        AddRowMultiple( row_t, i, t, coef );
+        AddColumnMultiple( row_t_inverse, t, i, - coef );
+      fi;
+    od;
+
+
+    Print("hnf: do ");
+    Print(t);
+    Print("\n");
+  od;
 
 
   for t in [ 1 .. Nrows(A) ] do
@@ -433,12 +506,15 @@ SNFTransform := function(mat)
   # Uses Hermite Normal form first to speed up computations.
 
   local hnf, col_t, row_t, row_t_inverse, rank, A;
-  hnf := HNFTransform(mat);
-  Print("HNF done\n");
+  #hnf := HNFTransform(mat);
+  #Print("HNF done\n");
   col_t := SparseIdentityMatrix(Ncols(mat), mat!.ring);
-  row_t := hnf.transform;
-  row_t_inverse := hnf.transform_inverse;
-  A := hnf.H;
+  row_t := SparseIdentityMatrix(Nrows(mat), mat!.ring);
+  row_t_inverse := SparseIdentityMatrix(Nrows(mat), mat!.ring);
+  #row_t := hnf.transform;
+  #row_t_inverse := hnf.transform_inverse;
+  #A := hnf.H;
+  A := CopyMat( mat );
   rank := SNFTransformDestructive(A, row_t, row_t_inverse, col_t);
   return rec(SNF := A,
              rank := rank,
