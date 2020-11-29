@@ -2,6 +2,7 @@
 // ./go
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <omp.h>
 
 int main(int argc, char **argv)
@@ -23,6 +24,16 @@ int main(int argc, char **argv)
     printf("Thread %d performed %d iterations of the loop.\n",
            thread_id, nloops );
   }
+  int x[3] = {30,20,10};
+  int index[3] = {0,1,2};
 
+  int compare (const void * a, const void * b)
+  {
+    return ( x[*(int*)a] - x[*(int*)b] );
+  }
+
+  qsort(index, 3, sizeof(int), compare);
+
+  printf("\nindex=%d, %d, %d\n",index[0],index[1],index[2]);
   return 0;
 }
