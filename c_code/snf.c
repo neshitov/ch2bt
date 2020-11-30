@@ -7,6 +7,29 @@
 //#include <iostream>
 //using namespace std;
 
+int** allocate_memory(int nrows, int ncols){
+  int** a;
+  a = malloc(nrows * sizeof(int*));
+  for(int i = 0; i < nrows; ++i){
+    a[i] = malloc(ncols * sizeof(int));
+  }
+  return a;
+}
+
+int reduce(int a, int power){
+  // a mod order when order is power of 2
+  return a & ((1 << power) - 1);
+}
+
+void print_matrix(int** a, int nrows, int ncols){
+  for(int i = 0; i < nrows; ++i){
+      for(int j = 0; j < ncols; ++j){
+        printf("%d ", a[i][j]);
+      }
+      printf("\n");
+  }
+}
+
 void switch_rows(int** mat, int i, int j){
   int* temp;
   if (i!=j){
@@ -91,12 +114,9 @@ int inverse(int a, int power){
   return u;
 }
 
-int reduce(int a, int power){
-  // a mod order when order is power of 2
-  return a & ((1 << power) - 1);
-}
 
 int divide(int a, int b, int power){
+  // return  a / b
   int val_a = two_val(a, power);
   int val_b = two_val(b, power);
   int b_odd = b / (1 << val_b);
@@ -117,15 +137,25 @@ void multiply_col_by_unit(int** mat, int i, int unit, int nrows, int power){
 }
 
 void add_row_mult(int** mat, int i, int j, int c, int ncols, int power){
+  #pragma omp parallel num_threads(4)
+  {
+  #pragma omp for
+
   for (int k = 0; k < ncols; ++k){
     mat[i][k] = reduce(mat[i][k] + c * mat[j][k], power);
   }
 }
+}
 
 void add_col_mult(int** mat, int i, int j, int c, int nrows, int power){
+  #pragma omp parallel num_threads(4)
+  {
+  #pragma omp for
+
   for (int k = 0; k < nrows; ++k){
     mat[k][i] = reduce(mat[k][i] + c * mat[k][j], power);
   }
+}
 }
 
 void find_smallest_row_col_entries(
@@ -175,6 +205,7 @@ int snf_transform(
   int power
 ){
 
+
   int rank_count = 1;
   int min_p_val_in_column;
   int min_p_val_in_column_index;
@@ -192,7 +223,7 @@ int snf_transform(
     int i_t = 0;
 
     for (int i = t; i < nrows; i++){
-      for (int j = i; j < ncols; j++){
+      for (int j = t; j < ncols; j++){
         if (mat[i][j] != 0) {
           if (j == t){
             i_t = i;
@@ -214,7 +245,6 @@ int snf_transform(
       break;
     }
 
-
     // Move pivot to position to (t, t)
     if (i_t != t){
       switch_rows(mat, i_t, t);
@@ -223,7 +253,7 @@ int snf_transform(
     }
     if (j_t != t){
       switch_columns(mat, nrows, j_t, t);
-      switch_columns(mat, ncols, j_t, t);
+      switch_columns(col_t, ncols, j_t, t);
     }
 
 
@@ -251,34 +281,59 @@ int snf_transform(
       }
     }
 
+
     // get rid of all entries in column t
-    for (int i = t + 1; i < nrows; ++i){
-      if (mat[i][t] != 0) {
-        coef = - divide(mat[i][t], mat[t][t], power);
-        add_row_mult(mat, i, t, coef, ncols, power);
-        add_row_mult(row_t, i, t, coef, nrows, power);
-        add_col_mult(row_t_inverse, t, i, - coef, nrows, power);
+
+    //#pragma omp parallel num_threads(4)
+    //{
+    //#pragma omp for
+      for (int i = t + 1; i < nrows; ++i){
+        if (mat[i][t] != 0) {
+          coef = - divide(mat[i][t], mat[t][t], power);
+          //printf("R%d <- R%d + %d * R%d\n", i, i, coef, t);
+          add_row_mult(mat, i, t, coef, ncols, power);
+          add_row_mult(row_t, i, t, coef, nrows, power);
+          add_col_mult(row_t_inverse, t, i, - coef, nrows, power);
+        }
       }
-    }
+    //}
+    //printf("\nsnf:\n");
+    //print_matrix(mat, nrows, ncols);
+    //printf("\nrow_t:\n");
+    //print_matrix(row_t, nrows, nrows);
+    //printf("\ncol_t:\n");
+    //print_matrix(col_t, ncols, ncols);
+
 
     // get rid of all entries in row t
-    for (int j = t + 1; j < ncols; ++j){
-      if (mat[t][j] != 0) {
-        coef = - divide(mat[t][j], mat[t][t], power);
-        add_col_mult(mat, j, t, coef, nrows, power);
-        add_col_mult(col_t, j, t, coef, ncols, power);
+
+    //#pragma omp parallel num_threads(4)
+    //{
+    //#pragma omp for
+      for (int j = t + 1; j < ncols; ++j){
+        if (mat[t][j] != 0) {
+          coef = - divide(mat[t][j], mat[t][t], power);
+          add_col_mult(mat, j, t, coef, nrows, power);
+          add_col_mult(col_t, j, t, coef, ncols, power);
+        }
       }
-    }
+    //}
 
     // Make pivot power of p
-    //pivot_p_val = two_val(mat[t][t], power);
-    //int unit = divide((1 << pivot_p_val), mat[t][t], power);
-    //mat[t][t] = (1 << pivot_p_val);
-    //multiply_row_by_unit(row_t, t, unit, nrows, power);
-    //multiply_col_by_unit(row_t_inverse, t, divide(1, unit, power), nrows, power);
+    pivot_p_val = two_val(mat[t][t], power);
+    int unit = divide((1 << pivot_p_val), mat[t][t], power);
+    mat[t][t] = (1 << pivot_p_val);
+    multiply_row_by_unit(row_t, t, unit, nrows, power);
+    multiply_col_by_unit(row_t_inverse, t, divide(1, unit, power), nrows, power);
 
   rank_count++;
   printf("c_code: %d done\n", t);
+  //printf("\nsnf:\n");
+  //print_matrix(mat, nrows, ncols);
+  //printf("\nrow_t:\n");
+  //print_matrix(row_t, nrows, nrows);
+  //printf("\ncol_t:\n");
+  //print_matrix(col_t, ncols, ncols);
   }
   rank_count--;
 
@@ -303,19 +358,21 @@ int snf_transform(
 
 
 int** read_matrix(int* nrows, int* ncols, int* power, FILE * fp){
-  int ** a;
+  int** a;
   fscanf(fp, "%d %d %d", nrows, ncols, power);
+  //printf("nrows %d ncols %d\n", *nrows, *ncols);
 
-  a = malloc(*nrows *sizeof(int));
-  for(size_t i = 0; i < *nrows; ++i){
-    a[i] = malloc(*ncols *sizeof(int));
+  a = malloc(*nrows * sizeof(int*));
+  for(int i = 0; i < *nrows; ++i){
+    a[i] = malloc(*ncols * sizeof(int));
   }
 
-  for(size_t i = 0; i < *nrows; ++i)
-    {
-        for(size_t j = 0; j < *ncols; ++j)
-            fscanf(fp, "%d", &a[i][j]);
+  for(int i = 0; i < *nrows; i++){
+    for(int j = 0; j < *ncols; j++){
+      fscanf(fp, "%d", &a[i][j]);
+      //printf("%d %d %d\n", i, j, a[i][j]);
     }
+  }
   return a;
 }
 
@@ -334,7 +391,7 @@ void write_matrix(int** x, int nrows, int ncols, FILE * fp){
 
 int** get_identity_matrix(int nrows){
   int ** a;
-  a = malloc(nrows *sizeof(int));
+  a = malloc(nrows * sizeof(int*));
   for(size_t i = 0; i < nrows; ++i){
     a[i] = malloc(nrows *sizeof(int));
     for(size_t j = 0; j < nrows; ++j){
@@ -348,14 +405,6 @@ int** get_identity_matrix(int nrows){
   return a;
 }
 
-void print_matrix(int** a, int nrows, int ncols){
-  for(int i = 0; i < nrows; ++i){
-      for(int j = 0; j < ncols; ++j){
-        printf("%d ", a[i][j]);
-      }
-      printf("\n");
-  }
-}
 
 int main(int argc, char** argv){
 
@@ -368,6 +417,20 @@ int main(int argc, char** argv){
   int nrows;
   int ncols;
   int power;
+
+
+  /*
+  fp = fopen("/home/alexander/ch2bt/c_code/debug.txt", "r");
+  int** a = read_matrix(&nrows, &ncols, &power, fp);
+  fclose(fp);
+
+  row_t = get_identity_matrix(nrows);
+  row_t_inverse = get_identity_matrix(nrows);
+  col_t = get_identity_matrix(ncols);
+
+  print_matrix(a, nrows, ncols);
+  */
+
 
   output_name = malloc(strlen(argv[1]) + 4);
   strcpy(output_name, argv[1]);
@@ -382,7 +445,8 @@ int main(int argc, char** argv){
   col_t = get_identity_matrix(ncols);
 
   int rank = snf_transform(a, row_t, row_t_inverse, col_t, nrows, ncols, power);
-  /*
+
+  /*<----------------
   printf("nrows=%d ncols=%d power=%d\n", nrows, ncols, power);
   print_matrix(a, nrows, ncols);
 
@@ -397,7 +461,7 @@ int main(int argc, char** argv){
 
   printf("row_t_inverse:\n");
   print_matrix(row_t_inverse, nrows, nrows);
-  */
+  <-------------------*/
 
   fp = fopen(output_name, "w");
   fprintf(fp, "local tr;\n");
@@ -421,5 +485,4 @@ int main(int argc, char** argv){
   write_matrix(col_t, ncols, ncols, fp);
   fprintf(fp, ");\n return tr;");
   fclose(fp);
-
 }

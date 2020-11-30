@@ -566,7 +566,7 @@ end;
 
 SNFTransform_c := function(mat)
   local tmp_dir, tmp_input_file, tmp_output_file, exec_file;
-  
+
   tmp_dir := DirectoryTemporary();
   tmp_input_file := Filename(tmp_dir, "c_input");
   tmp_output_file := Filename(tmp_dir, "c_input_out");
@@ -574,6 +574,44 @@ SNFTransform_c := function(mat)
   PrintMatrix(tmp_input_file, mat);
   Exec(exec_file, tmp_input_file);
   return ReadCResult(tmp_output_file);
+end;
+
+CheckCAnswer := function(tr, A)
+  local nrows, ncols, power, i, j;
+  nrows := DimensionsMat(A)[1];
+  ncols := DimensionsMat(A)[2];
+  power := PrimePowersInt(Characteristic(Ring(A[1][1])))[2];
+
+  for i in [1 .. nrows ] do
+    for j in [1 .. ncols ] do
+      if j <> i and tr.SNF[i][j] <> Zero(Integers mod 2^power) then
+        Error("SNF not diagonal");
+      fi;
+    od;
+  od;
+
+  for i in [ 1 .. tr.rank ] do
+    if tr.SNF[i][i] = Zero(Integers mod 2^power) then
+      Error( " rank incorrect " );
+    fi;
+  od;
+
+  for i in [ tr.rank + 1 .. Minimum(nrows, ncols) ] do
+    if tr.SNF[i][i] <> Zero(Integers mod 2^power) then
+      Error( " rank incorrect " );
+    fi;
+  od;
+
+  if (tr.row_t * A * tr.col_t) <> tr.SNF then
+    Error( "Transformation is not equal to SNF " );
+  fi;
+
+  if (tr.row_t * tr.row_t_inverse) <> IdentityMat(nrows) * One(Integers mod 2^power) then
+    Error( "Row transform inverse fail " );
+  fi;
+  Print("pass");
+
+
 end;
 
 CheckAnswer := function(tr, A)
