@@ -1,13 +1,18 @@
+// compile gcc -fopenmp snf.c -o snf
+// usage snf -num_threads n input_file or usage snf input_file
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <math.h>
 #include <stdbool.h>
 #include <omp.h>
-//#include <iostream>
-//using namespace std;
 
-int** allocate_memory(int nrows, int ncols){
+int NUM_THREADS = 4;
+
+int** allocate_memory(
+  int nrows,
+  int ncols
+){
   int** a;
   a = malloc(nrows * sizeof(int*));
   for(int i = 0; i < nrows; ++i){
@@ -16,12 +21,21 @@ int** allocate_memory(int nrows, int ncols){
   return a;
 }
 
-int reduce(int a, int power){
+
+int reduce(
+  int a,
+  int power
+){
   // a mod order when order is power of 2
   return a & ((1 << power) - 1);
 }
 
-void print_matrix(int** a, int nrows, int ncols){
+
+void print_matrix(
+  int** a,
+  int nrows,
+  int ncols
+){
   for(int i = 0; i < nrows; ++i){
       for(int j = 0; j < ncols; ++j){
         printf("%d ", a[i][j]);
@@ -30,7 +44,12 @@ void print_matrix(int** a, int nrows, int ncols){
   }
 }
 
-void switch_rows(int** mat, int i, int j){
+
+void switch_rows(
+  int** mat,
+  int i,
+  int j
+){
   int* temp;
   if (i!=j){
     temp = mat[i];
@@ -39,7 +58,12 @@ void switch_rows(int** mat, int i, int j){
   }
 }
 
-void permute_rows(int** mat, int* p_original, int perm_len){
+
+void permute_rows(
+  int** mat,
+  int* p_original,
+  int perm_len
+){
   int next;
   int temp;
   int p[perm_len];
@@ -58,7 +82,13 @@ void permute_rows(int** mat, int* p_original, int perm_len){
   }
 }
 
-void switch_columns(int** mat, int nrows, int i, int j){
+
+void switch_columns(
+  int** mat,
+  int nrows,
+  int i,
+  int j
+){
   int temp;
   if (i!=j){
     for (int k = 0; k < nrows; k++){
@@ -69,7 +99,13 @@ void switch_columns(int** mat, int nrows, int i, int j){
   }
 }
 
-void permute_columns(int** mat, int* p_original, int nrows, int perm_len){
+
+void permute_columns(
+  int** mat,
+  int* p_original,
+  int nrows,
+  int perm_len
+){
   int next;
   int temp;
   int p[perm_len];
@@ -90,7 +126,10 @@ void permute_columns(int** mat, int* p_original, int nrows, int perm_len){
 }
 
 
-int two_val(int n, int power){
+int two_val(
+  int n,
+  int power
+){
   if (n == 0){
     return power;
   } else {
@@ -98,7 +137,11 @@ int two_val(int n, int power){
   }
 }
 
-int inverse(int a, int power){
+
+int inverse(
+  int a,
+  int power
+){
   // return 1/a mod order where order is power of 2
   int order = 1 << power;
   int s = two_val(a - 1, power);
@@ -115,7 +158,11 @@ int inverse(int a, int power){
 }
 
 
-int divide(int a, int b, int power){
+int divide(
+  int a,
+  int b,
+  int power
+){
   // return  a / b
   int val_a = two_val(a, power);
   int val_b = two_val(b, power);
@@ -124,39 +171,70 @@ int divide(int a, int b, int power){
   return reduce(a_odd * inverse(b_odd, power) * (1 << (val_a - val_b)), power);
 }
 
-void multiply_row_by_unit(int** mat, int i, int unit, int ncols, int power){
+
+void multiply_row_by_unit(
+  int** mat,
+  int i,
+  int unit,
+  int ncols,
+  int power
+){
   for (int k = 0; k < ncols; ++k){
     mat[i][k] = reduce(mat[i][k] * unit, power);
   }
 }
 
-void multiply_col_by_unit(int** mat, int i, int unit, int nrows, int power){
+
+void multiply_col_by_unit(
+  int** mat,
+  int i,
+  int unit,
+  int nrows,
+  int power
+){
   for (int k = 0; k < nrows; ++k){
     mat[k][i] = reduce(mat[k][i] * unit, power);
   }
 }
 
-void add_row_mult(int** mat, int i, int j, int c, int ncols, int power){
-  #pragma omp parallel num_threads(4)
+
+void add_row_mult(
+  int** mat,
+  int i,
+  int j,
+  int c,
+  int ncols,
+  int power,
+  int _num_threads
+){
+  #pragma omp parallel num_threads(_num_threads)
   {
   #pragma omp for
-
-  for (int k = 0; k < ncols; ++k){
-    mat[i][k] = reduce(mat[i][k] + c * mat[j][k], power);
+    for (int k = 0; k < ncols; ++k){
+      mat[i][k] = reduce(mat[i][k] + c * mat[j][k], power);
+    }
   }
 }
-}
 
-void add_col_mult(int** mat, int i, int j, int c, int nrows, int power){
-  #pragma omp parallel num_threads(4)
+
+void add_col_mult(
+  int** mat,
+  int i,
+  int j,
+  int c,
+  int nrows,
+  int power,
+  int _num_threads
+){
+  #pragma omp parallel num_threads(_num_threads)
   {
   #pragma omp for
-
-  for (int k = 0; k < nrows; ++k){
-    mat[k][i] = reduce(mat[k][i] + c * mat[k][j], power);
+    for (int k = 0; k < nrows; ++k){
+      mat[k][i] = reduce(mat[k][i] + c * mat[k][j], power);
+    }
   }
 }
-}
+
 
 void find_smallest_row_col_entries(
   int** mat,
@@ -202,9 +280,9 @@ int snf_transform(
   int** mat, int** row_t,
   int** row_t_inverse, int** col_t,
   int nrows, int ncols,
-  int power
+  int power,
+  int _num_threads
 ){
-
 
   int rank_count = 1;
   int min_p_val_in_column;
@@ -214,9 +292,7 @@ int snf_transform(
   int pivot_p_val;
   int coef;
 
-
   for (int t = 0; t < nrows; ++t){
-
     // Choose j_t such that A[>=t,j_t] is the leftmost nonzero column in A[>=t,:]
     int j_t = ncols + 1;
     int min_v = power;
@@ -256,7 +332,6 @@ int snf_transform(
       switch_columns(col_t, ncols, j_t, t);
     }
 
-
     // Make pivot divide all elements in its row and column
     bool keep_going = true;
     while (keep_going){
@@ -271,53 +346,34 @@ int snf_transform(
             keep_going = false;
       }
       else if (min_p_val_in_column <= min_p_val_in_row){
-        add_row_mult(mat, t, min_p_val_in_column_index, 1, ncols, power);
-        add_row_mult(row_t, t, min_p_val_in_column_index, 1, nrows, power);
-        add_col_mult(row_t_inverse, min_p_val_in_column_index, t, -1, nrows, power);
+        add_row_mult(mat, t, min_p_val_in_column_index, 1, ncols, power, _num_threads);
+        add_row_mult(row_t, t, min_p_val_in_column_index, 1, nrows, power, _num_threads);
+        add_col_mult(row_t_inverse, min_p_val_in_column_index, t, -1, nrows, power, _num_threads);
       }
       else {
-        add_col_mult(mat, t, min_p_val_in_row_index, 1, nrows, power);
-        add_col_mult(col_t, t, min_p_val_in_row_index, 1, ncols, power);
+        add_col_mult(mat, t, min_p_val_in_row_index, 1, nrows, power, _num_threads);
+        add_col_mult(col_t, t, min_p_val_in_row_index, 1, ncols, power, _num_threads);
       }
     }
 
-
     // get rid of all entries in column t
 
-    //#pragma omp parallel num_threads(4)
-    //{
-    //#pragma omp for
       for (int i = t + 1; i < nrows; ++i){
         if (mat[i][t] != 0) {
           coef = - divide(mat[i][t], mat[t][t], power);
-          //printf("R%d <- R%d + %d * R%d\n", i, i, coef, t);
-          add_row_mult(mat, i, t, coef, ncols, power);
-          add_row_mult(row_t, i, t, coef, nrows, power);
-          add_col_mult(row_t_inverse, t, i, - coef, nrows, power);
+          add_row_mult(mat, i, t, coef, ncols, power, _num_threads);
+          add_row_mult(row_t, i, t, coef, nrows, power, _num_threads);
+          add_col_mult(row_t_inverse, t, i, - coef, nrows, power, _num_threads);
         }
       }
-    //}
-    //printf("\nsnf:\n");
-    //print_matrix(mat, nrows, ncols);
-    //printf("\nrow_t:\n");
-    //print_matrix(row_t, nrows, nrows);
-    //printf("\ncol_t:\n");
-    //print_matrix(col_t, ncols, ncols);
 
-
-    // get rid of all entries in row t
-
-    //#pragma omp parallel num_threads(4)
-    //{
-    //#pragma omp for
       for (int j = t + 1; j < ncols; ++j){
         if (mat[t][j] != 0) {
           coef = - divide(mat[t][j], mat[t][t], power);
-          add_col_mult(mat, j, t, coef, nrows, power);
-          add_col_mult(col_t, j, t, coef, ncols, power);
+          add_col_mult(mat, j, t, coef, nrows, power, _num_threads);
+          add_col_mult(col_t, j, t, coef, ncols, power, _num_threads);
         }
       }
-    //}
 
     // Make pivot power of p
     pivot_p_val = two_val(mat[t][t], power);
@@ -327,13 +383,8 @@ int snf_transform(
     multiply_col_by_unit(row_t_inverse, t, divide(1, unit, power), nrows, power);
 
   rank_count++;
-  printf("c_code: %d done\n", t);
-  //printf("\nsnf:\n");
-  //print_matrix(mat, nrows, ncols);
-  //printf("\nrow_t:\n");
-  //print_matrix(row_t, nrows, nrows);
-  //printf("\ncol_t:\n");
-  //print_matrix(col_t, ncols, ncols);
+  printf("\rSNF progress: reduced %d / %d rows", t + 1, nrows);
+  fflush(stdout);
   }
   rank_count--;
 
@@ -353,6 +404,7 @@ int snf_transform(
   permute_columns(mat, index, nrows, rank_count);
   permute_columns(col_t, index, ncols, rank_count);
 
+  printf("\n");
   return rank_count;
 }
 
@@ -414,29 +466,25 @@ int main(int argc, char** argv){
   int** col_t;
   FILE * fp;
   char* output_name;
+  char* input_name;
   int nrows;
   int ncols;
   int power;
+  int num_threads;
 
+  if (strcmp(argv[1], "-num_threads")==0){
+    num_threads = atoi(argv[2]);
+    input_name = argv[3];
+  } else{
+    num_threads = NUM_THREADS;
+    input_name = argv[1];
+  }
 
-  /*
-  fp = fopen("/home/alexander/ch2bt/c_code/debug.txt", "r");
-  int** a = read_matrix(&nrows, &ncols, &power, fp);
-  fclose(fp);
-
-  row_t = get_identity_matrix(nrows);
-  row_t_inverse = get_identity_matrix(nrows);
-  col_t = get_identity_matrix(ncols);
-
-  print_matrix(a, nrows, ncols);
-  */
-
-
-  output_name = malloc(strlen(argv[1]) + 4);
-  strcpy(output_name, argv[1]);
+  output_name = malloc((strlen(input_name) + 4) * sizeof(char));
+  strcpy(output_name, input_name);
   strcat(output_name, "_out");
 
-  fp = fopen(argv[1], "r");
+  fp = fopen(input_name, "r");
   int** a = read_matrix(&nrows, &ncols, &power, fp);
   fclose(fp);
 
@@ -444,7 +492,7 @@ int main(int argc, char** argv){
   row_t_inverse = get_identity_matrix(nrows);
   col_t = get_identity_matrix(ncols);
 
-  int rank = snf_transform(a, row_t, row_t_inverse, col_t, nrows, ncols, power);
+  int rank = snf_transform(a, row_t, row_t_inverse, col_t, nrows, ncols, power, num_threads);
 
   /*<----------------
   printf("nrows=%d ncols=%d power=%d\n", nrows, ncols, power);

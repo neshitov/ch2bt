@@ -1,7 +1,8 @@
 LoadPackage("Gauss");
 
-Read("SparseReduction.gap");
-carat_folder := "/home/alexander/ch2bt/carat_tables";
+# Read("SparseReduction.gap");
+Read("./LocalSmithNormalForm.gap");
+carat_folder := "./carat_tables";
 files := [
   Concatenation(carat_folder, "/cryst1.txt"),
   Concatenation(carat_folder, "/cryst2.txt"),
@@ -9,7 +10,7 @@ files := [
   Concatenation(carat_folder, "/cryst4.txt"),
   Concatenation(carat_folder, "/cryst5.txt"),
   Concatenation(carat_folder, "/cryst6.txt"),
-  "/home/alexander/ch2bt/FlabbyResolution.gap"
+  "./FlabbyResolution.gap"
 ];
 
 
