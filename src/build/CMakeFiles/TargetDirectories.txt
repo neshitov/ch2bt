@@ -1,0 +1,3 @@
+/home/alexander/ch2bt/src/build/CMakeFiles/rebuild_cache.dir
+/home/alexander/ch2bt/src/build/CMakeFiles/gap_snf.dir
+/home/alexander/ch2bt/src/build/CMakeFiles/edit_cache.dir

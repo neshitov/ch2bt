@@ -58,16 +58,16 @@ Mod2Image := function(m)
   return m{[1..DimensionsMat(m)[1]]}{pivots};
 end;
 
-LeftInverse := function(m)
-  # Return a matrix a such that a*m = I if such a exists
-  local emt, inv;
-  emt := EchelonMatTransformation(m);
-  inv := TransposedMat(emt.vectors) * emt.coeffs;
-  if inv * m <> Z(2) * IdentityMat(DimensionsMat(m)[2]) then
-    Error("Left inverse failure");
-  fi;
-  return inv;
-end;
+#LeftInverse := function(m)
+#  # Return a matrix a such that a*m = I if such a exists
+#  local emt, inv;
+#  emt := EchelonMatTransformation(m);
+#  inv := TransposedMat(emt.vectors) * emt.coeffs;
+#  if inv * m <> Z(2) * IdentityMat(DimensionsMat(m)[2]) then
+#    Error("Left inverse failure");
+#  fi;
+#  return inv;
+#end;
 
 
 FlasqueResolution := function(g)
@@ -198,64 +198,29 @@ B1Mod2 := function(gens)
 end;
 
 
-#Testsuka := function(gens)
-#  local b, i, d;
-#  d := DimensionsMat(gens[1])[1];
-#  b := SparseMatrix(gens[1]);
-#  for i in [2..Length(gens)] do
-#    b := UnionOfRows(b, SparseMatrix(gens[i]));
-#  od;
-#  return b;
-#end;
-
-
-B1 := function(gens, ring)
-  # Constructs the inclusion of B^1(G,M) -> M^gens tensored with ring
+B1 := function(gens)
+  # Constructs the matrix of conoundary map \delta M -> M^gens tensored with ring
   local b, i, d;
   d := DimensionsMat(gens[1])[1];
-  b := SparseMatrix((gens[1] - IdentityMat(d)) * One(ring));
-  for i in [2..Length(gens)] do
-    b := UnionOfRows(b, SparseMatrix((gens[i] - IdentityMat(d)) * One(ring)));
-  od;
+  b := BlockMatrix(List([1..Length(gens)], i -> [i, 1, ( gens[i] - IdentityMat(d) )]),
+                   Length(gens), 1); # Inclusion B^1(G,M) -> M^gens
+  b := MatrixByBlockMatrix(b);
   return b;
 end;
 
+Z1Part := function(gens, power)
+  # Finds generators of Z1 that do not belong to B1 and returns them modulo 2
+  local b, vec, num_threads;
 
-ReduceSparseVectorMod2 := function(indices, entries)
-  local new_indices, filter;
-  filter := Filtered([ 1 .. Length(indices) ], i -> Int(entries[i]) mod 2 <> 0);
-  new_indices := indices{filter};
-  return new_indices;
-end;
-
-
-ReduceSparseMatrixMod2 := function(sm)
-  # Reduce sparse matrix modulo 2.
-  return SparseMatrix( Nrows(sm),
-                       Ncols(sm),
-                       List( [ 1 .. Nrows(sm) ],
-                       i -> ReduceSparseVectorMod2( sm!.indices[i],
-                                                    sm!.entries[i] ) ) );
-end;
-
-
-Z1Part := function(gens, group_order)
-  # Returns generators of Z1 that do not belong to B1 inside M^gens
-
-  local order, b, tr, non_one_cols, z1_part;
-
-  order := group_order * 2;
-
-  if order <> 2 ^ PValuation(order, 2) then
-    Error("Not a 2 group");
+  num_threads := ValueOption("num_threads");
+  if num_threads = fail then
+    num_threads := 4;
   fi;
-  b := B1(gens, Integers mod order);
-  tr := SNFTransform(b);
 
-  non_one_cols := Filtered( [ 1 .. tr.rank ],
-                            i -> tr.SNF!.entries[i][1] <> One( Integers mod order ) );
-  z1_part := CertainColumns( tr.row_t_inverse, non_one_cols );
-  return ReduceSparseMatrixMod2(z1_part);
+  b := B1(gens) mod ( 2 ^ (power + 1) );
+  vec := SaturationVectors(b, power + 1: num_threads:=num_threads);
+  vec := vec * One(Integers mod 2);
+  return vec;
 end;
 
 
@@ -349,14 +314,23 @@ end;
 
 
 ComputePhi := function(gens, cr)
-  local relations, group_order, result, ZP2, ZM2, PM, BM2, _start, _end, L, L2,
-        ZL, ZL2, mapk;
+  local relations, group_order, power, result, ZP2, ZM2, PM, BM2, _start, _end, L, L2,
+        ZL, ZL2, mapk, num_threads;
+
+  num_threads := ValueOption("num_threads");
+  if num_threads = fail then
+    num_threads := 4;
+  fi;
 
   relations := MatrixRelations(gens);
   group_order := Order( Group( gens ) );
-  result := rec();
+  power := PValuation(group_order, 2);
 
-  _start := NanosecondsSinceEpoch();
+  if group_order <> 2 ^ power then
+      Error("Not a 2 group");
+  fi;
+
+  result := rec();
 
   ZP2 := Z1Mod2(Z(2) * cr.actionP, relations); # Z^1(P/2) -> P/2^gens
   ZM2 := Z1Mod2(Z(2) * gens, relations); # Z^1(M/2) -> M/2^gens
@@ -374,45 +348,22 @@ ComputePhi := function(gens, cr)
     return result;
   fi;
 
-  _end := NanosecondsSinceEpoch();
-  Print("Coflasque resolution rank ");
-  Print(DimensionsMat( cr.actionC[1])[1] );
-  Print("\n");
-  Print("H1P2 done in ");
-  Print( Float( (_end - _start) / ( 60 * (10^9) ) ) );
-  Print("\n");
+  #Print("Coflasque resolution rank ");
+  #Print(DimensionsMat( cr.actionC[1])[1] );
 
   _start := NanosecondsSinceEpoch();
 
   L := ExteriorSquare(cr.actionC); # Lambda^2(N)
   mapk := MapK(cr, Length(gens)); # L2N^gens -> M^gens/2
 
-  #L2 := Z(2) * L; # Lambda^2(N)/2
-  #ZL2 := Z1Mod2( L2, relations );
-  #ZL2 := mapk * ZL2;
-  #result.im_HL2_rank := RankMat( MatConcat( [BM2, ZL2] ) ) - RankMat(BM2);
-
-  #if result.im_HL2_rank = result.im_HP2_rank then
-  #  result.Phi_rank := 0;
-  #  #return result;
-  #fi;
-
-  #_end := NanosecondsSinceEpoch();
-  #Print("H1L2 done in ");
-  #Print(Float( (_end - _start) / ( 60 * (10^9) ) ) );
-  #Print("\n");
-  #_start := NanosecondsSinceEpoch();
-
-  ZL := Z1Part(L, group_order);
-  ZL := SparseMatrix( mapk ) * ZL;
-  ZL := ConvertSparseMatrixToMatrix( ZL );
+  ZL := Z1Part(L, power: num_threads:=num_threads);
+  ZL := mapk * ZL;
   result.im_HL_rank := RankMat( MatConcat( [BM2, ZL] ) ) - RankMat(BM2);
   result.Phi_rank := RankMat( MatConcat( [BM2, ZL, ZP2] ) ) - RankMat( MatConcat( [BM2, ZP2] ) );
 
   _end := NanosecondsSinceEpoch();
-  Print("H1L done in ");
-  Print(Float( (_end - _start) / ( 60 * (10^9) ) ) );
-  Print("\n");
+  #Print("\rH1L done in ");
+  #Print(String( Float( (_end - _start) / ( 60 * (10^9) ) ) ){[1..7]} );
 
   return result;
 

@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/gap_snf.dir/gap_snf.c.o CMakeFiles/gap_snf.dir/snf.c.o -o gap_snf  -lOpenMP::OpenMP 
