@@ -1,6 +1,7 @@
 # Usage tr:=SNFTransform(A : num_threads:=2);;
 
-PKG_DIR := "/home/alexander/ch2bt";
+#PKG_DIR := "/home/alexander/ch2bt";
+PKG_DIR := DirectoryCurrent();
 
 
 SNFTransform := function(mat, power)

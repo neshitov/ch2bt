@@ -58,17 +58,13 @@ Mod2Image := function(m)
   return m{[1..DimensionsMat(m)[1]]}{pivots};
 end;
 
-#LeftInverse := function(m)
-#  # Return a matrix a such that a*m = I if such a exists
-#  local emt, inv;
-#  emt := EchelonMatTransformation(m);
-#  inv := TransposedMat(emt.vectors) * emt.coeffs;
-#  if inv * m <> Z(2) * IdentityMat(DimensionsMat(m)[2]) then
-#    Error("Left inverse failure");
-#  fi;
-#  return inv;
-#end;
-
+LeftInverse := function(A)
+  local g;
+  g := NullspaceIntMat(A);
+  g := Concatenation(TransposedMat(A), g)^-1;
+  g := TransposedMat(g);
+  return g{[ 1 .. DimensionsMat(A)[2]]};
+end;
 
 FlasqueResolution := function(g)
   # Flasque resolution (all matrices act on the left)
@@ -80,8 +76,50 @@ FlasqueResolution := function(g)
              actionF:=TransposedMatrixGroup(fr.actionF));
 end;
 
+ResolutionFromProjection := function(pr, gens)
+  local cr, inverse_injection, t_p, gen;
+  cr := rec();
+  cr.surjection := pr;
+  cr.injection := NullspaceIntMat(TransposedMat(pr));
+  cr.injection := TransposedMat(cr.injection);
+  inverse_injection := LeftInverse(cr.injection);
+  t_p := TransposedMat(pr);
+  cr.actionP := List(gens,
+                     x -> PermutationMat(Permutation(TransposedMat(x), t_p), DimensionsMat(pr)[2])
+                    );
+  cr.actionC :=List(cr.actionP, x -> inverse_injection * x * cr.injection);
 
-CoflasqueResolution := function(gens)
+  return cr;
+end;
+
+#RestrictResolution := function(l_inverse_inj, inj, proj, sub_gens)
+#  local cr, t_p, gen;
+#  cr := rec();
+#  cr.surjection := proj;
+#  cr.injection := inj;
+#  t_p := TransposedMat(proj);
+#  cr.actionP := List(sub_gens,
+#                     x -> PermutationMat(Permutation(TransposedMat(x), t_p), DimensionsMat(proj)[2])
+#                    );
+#  cr.actionC :=List(cr.actionP, x -> l_inverse_inj * x * cr.injection);
+
+#  return cr;
+#end;
+
+
+CoflasqueCover := function(gens)
+  local g, subgroups, proj;
+  g := Group(List(gens, x -> TransposedMat(x)),
+             IdentityMat(DimensionsMat(gens[1])[1]));
+  subgroups :=List(ConjugacyClassesSubgroups2(g),Representative);
+  proj:=FindCoflabbyResolutionBase(g, subgroups);
+  proj:=TransposedMat(proj);
+
+  return proj;
+end;
+
+
+CoflasqueResolutionOld := function(gens)
   # Coflasque resolution (all matrices act on the left)
   local d, fr;
   d := DimensionsMat(gens[1])[1];
@@ -224,6 +262,8 @@ Z1Part := function(gens, power)
 end;
 
 
+
+
 ExtSquareIterator :=function(d)
   # iterates over basis of exterior square in order 12 13 .. 1d, 23 24.. 2d,
   local result, i, j;
@@ -348,15 +388,15 @@ ComputePhi := function(gens, cr)
     return result;
   fi;
 
-  #Print("Coflasque resolution rank ");
-  #Print(DimensionsMat( cr.actionC[1])[1] );
+  Print("Coflasque resolution rank ");
+  Print(DimensionsMat( cr.actionC[1])[1] );
 
   _start := NanosecondsSinceEpoch();
 
   L := ExteriorSquare(cr.actionC); # Lambda^2(N)
   mapk := MapK(cr, Length(gens)); # L2N^gens -> M^gens/2
 
-  ZL := Z1Part(L, power: num_threads:=num_threads);
+  ZL := Z1Part(L, power : num_threads:=num_threads);
   ZL := mapk * ZL;
   result.im_HL_rank := RankMat( MatConcat( [BM2, ZL] ) ) - RankMat(BM2);
   result.Phi_rank := RankMat( MatConcat( [BM2, ZL, ZP2] ) ) - RankMat( MatConcat( [BM2, ZP2] ) );

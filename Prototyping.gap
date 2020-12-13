@@ -1,4 +1,2 @@
 
-gno := function(A)
-  A[1]:=10;
-end;
+Print( Permutation([[0,1], [1,0]], [[1,1,1],[0,1,1]]) );
