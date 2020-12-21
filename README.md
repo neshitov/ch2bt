@@ -17,8 +17,9 @@ https://github.com/lbfm-rwth/carat/.
 
 ### Installation and usage:
 Run the ./configure script to unpack CARAT tables.<br>
-File Example.g provides an example of calculation for the case
-G = CARAT(6, 2377, 10), M=Z^6.<br> It computes the group Phi(G, M) of the paper
+File Example.g provides an example of calculation of the group Phi(G, M) of the paper
 "On a pairing for algebraic tori
-Mathematische Nachrichten, 292 (2019), 2283-2293." by A. Merkurjev. <br>
-In this case Phi(G, M) = Z/2, thus CH^2(BT)_tors = Z/2 when T is versal with splitting Galois group G.
+Mathematische Nachrichten, 292 (2019), 2283-2293." by A. Merkurjev.
+https://www.math.ucla.edu/~merkurev/papers/pairing3.pdf <br>
+
+It G = CARAT(6, 2377, 10), M=Z^6. In this case Phi(G, M) = Z/2, thus CH^2(BT)_tors = Z/2 when T is versal with splitting Galois group G.
