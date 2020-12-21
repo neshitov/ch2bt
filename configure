@@ -1,0 +1,4 @@
+#!/bin/sh
+
+tar -xzf ./dim_6_filtered_subgroups.tar_gz ./dim_6_filtered_subgroups
+tar -xzf ./carat_tables.tar_gz ./carat_tables

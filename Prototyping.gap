@@ -1,2 +1,3 @@
-
-Print( Permutation([[0,1], [1,0]], [[1,1,1],[0,1,1]]) );
+gg := function(x);
+  x[1]:=10;
+end;
