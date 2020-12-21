@@ -12,7 +12,7 @@ Computations here use the following results which are included in this repositor
 
 * CARAT tables (file "carat_tables.tar.gz"), part of the CARAT package:<br> [OPS19] Opgenorth, J., Plesken, W. and Schulz, T., Carat, Crystallographic AlgoRithms And Tables, Version 2.1b1 (2008)
 https://github.com/lbfm-rwth/carat/.
-* Algorithm for finding a flabby resolution (files "./RatProbAlgTori/FlabbyResolution.gap", "./RatProbAlgTori/caratnumber.gap") by A. Hoshi and A. Yamasaki:<br>
+* Algorithm for finding a flabby resolution (folder "./RatProbAlgTori") by A. Hoshi and A. Yamasaki:<br>
 [HY12] Hoshi, A., Yamasaki, A., Rationality Problem for Algebraic Tori. Memoirs of the American Mathematical Society. 248. 10.1090/memo/1176 (2012). https://www.math.kyoto-u.ac.jp/~yamasaki/Algorithm/RatProbAlgTori/
 
 ### Installation and usage:
