@@ -1,5 +1,5 @@
 #################################################################
-# List all subgroups of CARAT 6,6129,4 that are
+# List all subgroups of CARAT 6,6129,2 that are
 # not decomposable
 # not sign permutations
 # have order > 4
@@ -8,11 +8,11 @@
 Read("FilterTools.g");
 Read("CaratReader.g");
 
-gens := Carat(6, 6129, 4);;
+gens := Carat(6, 6129, 2);;
 hh := ConjugacyClassesSubgroups(Group(gens));;
 
-output_path :="./dim_6_filtered_subgroups/carat_6_6129_4_filtered_subgroups.txt";
-PrintTo(output_path, "carat_6_6129_4_filtered_subgroups:=[ ");
+output_path :="./dim_6_filtered_subgroups/carat_6_6129_2_filtered_subgroups.txt";
+PrintTo(output_path, "carat_6_6129_2_filtered_subgroups:=[ ");
 
 for h in hh do
   gens_h := SmallGeneratingSet(Representative(h));

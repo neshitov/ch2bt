@@ -21,3 +21,7 @@ cryst := [cryst1, cryst2, cryst3, cryst4, cryst5, cryst6];
 Carat := function(d, n, i)
   return cryst[d][n][i];
 end;
+
+Carat_nr_Z_classes := function(d, n)
+  return Length(cryst[d][n]);
+end;

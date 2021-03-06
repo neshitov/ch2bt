@@ -39,9 +39,15 @@ end;
 
 Mod2Image := function(m)
   # Return the image of the matrix map m
-  local pivots;
+  local pivots, out;
   pivots := PositionsProperty(EchelonMat(m).heads, i-> i>0);
-  return m{[1..DimensionsMat(m)[1]]}{pivots};
+
+  out := m{[1..DimensionsMat(m)[1]]}{pivots};
+  # Check for zero image
+  if not IsMatrix(out) then
+    out := Z(2) * NullMat(DimensionsMat(m)[1], 1);
+  fi;
+  return out;
 end;
 
 
@@ -277,7 +283,13 @@ ComputePhi := function(gens, cr)
   mapk := MapKgens(cr, Length(gens)); # L2N^gens -> M^gens/2
 
   ZL := Z1Part(L, power : num_threads:=num_threads);
+  # Check if ZL is zero
+  if not IsMatrix(ZL) then
+    ZL := Z(2) * NullMat(DimensionsMat(mapk)[2], 1);
+  fi;
+
   ZL := mapk * ZL;
+
   result.im_HL_rank := RankMat( MatConcat( [BM2, ZL] ) ) - RankMat(BM2);
   result.Phi_rank := RankMat( MatConcat( [BM2, ZL, ZP2] ) ) - RankMat( MatConcat( [BM2, ZP2] ) );
 

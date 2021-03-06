@@ -12,7 +12,7 @@ pr := CoflasqueCover(gens);
 
 N := Length(carat_6_6129_4_filtered_subgroups);
 
-for i in [13090 .. N] do
+for i in [1 .. N] do
   sub_gens := carat_6_6129_4_filtered_subgroups[i];
   cr := CoflasqueResolution(pr, sub_gens);
   res := ComputePhi(sub_gens, cr: num_threads:=20);
