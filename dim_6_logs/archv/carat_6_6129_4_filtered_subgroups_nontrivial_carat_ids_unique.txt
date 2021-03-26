@@ -173,4 +173,4 @@ nontrivial_carat_ids:= [ rec(
       HM2_rank := 3,
       Phi_rank := 1,
       im_HL_rank := 1,
-      im_HP2_rank := 0 ) ];
+      im_HP2_rank := 0 ) ]
