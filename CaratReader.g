@@ -25,3 +25,7 @@ end;
 Carat_nr_Z_classes := function(d, n)
   return Length(cryst[d][n]);
 end;
+
+Carat_nr_Q_classes := function(d)
+  return Length(cryst[d]);
+end;

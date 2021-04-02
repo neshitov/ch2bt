@@ -33,6 +33,6 @@ CheckResolution := function(gens, res)
   Print("pass");
 end;
 
-gens := Carat(5, 697, 4);
-cr := CoflasqueResolution(CoflasqueCover(gens), gens);
-CheckResolution(gens, cr);
+#gens := Carat(5, 697, 4);
+#cr := CoflasqueResolution(CoflasqueCover(gens), gens);
+#CheckResolution(gens, cr);

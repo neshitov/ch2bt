@@ -120,7 +120,7 @@ end;
 
 
 B1 := function(gens)
-  # Constructs the matrix of conoundary map \delta M -> M^gens
+  # Constructs the matrix of coboundary map \delta M -> M^gens
   local b, i, d;
   d := DimensionsMat(gens[1])[1];
   b := BlockMatrix(List([1..Length(gens)], i -> [i, 1, ( gens[i] - IdentityMat(d) )]),
