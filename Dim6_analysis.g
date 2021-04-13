@@ -6,7 +6,7 @@ Read("./dim_6/carat_ids.txt");
 
 out_path := "./dim_6/filtered_subgroups_result_small_rank.txt";
 
-PrintTo(out_path, "result := [");
+#AppendTo(out_path, "result := [");
 
 for i in [1 .. Length(filtered_subgroups_ids)] do
 
@@ -27,7 +27,7 @@ for i in [1 .. Length(filtered_subgroups_ids)] do
   else
     result.result := "NOT COMPUTED";
   fi;
-
+  Print("\n Do ", [id[1], id[2], id[3]], "\n" );
   AppendTo(out_path, result, ",");
   Print("\n", i, " done of ", Length(filtered_subgroups_ids), "\n" );
 od;
