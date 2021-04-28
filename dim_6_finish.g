@@ -12,6 +12,6 @@ for i in [1 .. Length(result)] do
     cr := CoflasqueResolution(pr, gens);
     res := ComputePhi(gens, cr: num_threads:=20);
     result[i].result := res;
-    PrintTo(out_path, "result := ", result, ";");
+    PrintTo(result_path, "result := ", result, ";");
   fi;
 od;
