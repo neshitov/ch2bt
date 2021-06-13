@@ -1,12 +1,13 @@
 Read("ComputePhi.g");
 Read("CaratReader.g");
 Read("CoflasqueCover.g");
-Read("config.g")
+Read("config.g");
 result_path := "./dim_6/result.txt";
 Read(result_path);
 
 for i in [1 .. Length(result)] do
-  if result[i].result = "NOT COMPUTED" then
+    if ((result[i].result = "NOT COMPUTED")
+          and (result[i].coflasque_cover_dim < 200)) then
     id := result[i].carat_id;
     Print("Doing ", id);
     Print("\n");
