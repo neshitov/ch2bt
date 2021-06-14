@@ -1,1 +1,1 @@
-n_threads:=8;
+n_threads:=32;
