@@ -7,7 +7,7 @@ Read(result_path);
 
 for i in [1 .. Length(result)] do
     if ((result[i].result = "NOT COMPUTED")
-          and (result[i].coflasque_cover_dim < 200)) then
+          and (result[i].coflasque_cover_dim < 215)) then
     id := result[i].carat_id;
     Print("Doing ", id);
     Print("\n");
