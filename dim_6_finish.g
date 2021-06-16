@@ -14,6 +14,10 @@ for i in [1 .. Length(result)] do
     gens := Carat(id[1], id[2], id[3]);
     pr := CoflasqueCover(gens);
     cr := CoflasqueResolution(pr, gens);
+
+    Reset(GlobalMersenneTwister);
+    Reset(GlobalRandomSource);
+
     res := ComputePhi(gens, cr: num_threads:=n_threads);
     result[i].result := res;
     PrintTo(result_path, "result := ", result, ";");
