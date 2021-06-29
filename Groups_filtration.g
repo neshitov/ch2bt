@@ -1,3 +1,7 @@
+################################################################
+# Code to filter out decomposable subgroups
+################################################################
+
 Read("CaratReader.g");
 Read("FilterTools.g");
 
