@@ -1,6 +1,5 @@
 #!/bin/sh
 
-tar -xzf ./dim_6_filtered_subgroups.tar.gz ./dim_6_filtered_subgroups
 tar -xzf ./carat_tables.tar.gz ./carat_tables
 n_threads=$(nproc)
 echo "n_threads:=$n_threads;" > config.g

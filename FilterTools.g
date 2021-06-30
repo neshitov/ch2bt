@@ -21,8 +21,6 @@ IsDecomposable:= function(n, matrix_list)
       od;
     od;
   od;
-  #Print("r=");
-  #Print(r);
   r:= BinaryRelationByElements(domain, r);
   er := EquivalenceRelationByRelation(r);
   partition := EquivalenceRelationPartition(er);
